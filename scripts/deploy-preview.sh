@@ -50,6 +50,21 @@ ENV_FILE="${RUNTIME_DIR}/config/preview.env"
 PERMS="$(stat -c '%a' "${ENV_FILE}")"
 [ "${PERMS}" = "600" ] || die "${ENV_FILE} has mode ${PERMS}; expected 600"
 
+# --- 3b. Host disk headroom --------------------------------------------------
+# A first build pulls base images and installs dependencies for three services;
+# 6 GiB is a conservative floor. Refusing here matters more than it looks: on a
+# shared host, filling the disk mid-build breaks every OTHER service on the box,
+# not just this deployment. Override only if you know what is on the volume.
+REQUIRED_FREE_MB="${REQUIRED_FREE_MB:-6144}"
+FREE_MB="$(df -Pm / | awk 'NR==2 {print $4}')"
+USED_PCT="$(df -P / | awk 'NR==2 {gsub(/%/,"",$5); print $5}')"
+log "host disk: ${FREE_MB} MB free, ${USED_PCT}% used"
+if [ "${FREE_MB}" -lt "${REQUIRED_FREE_MB}" ]; then
+  die "only ${FREE_MB} MB free on / (need ${REQUIRED_FREE_MB} MB). Free space first; \
+building here risks filling the disk and taking down other services on this host. \
+Set REQUIRED_FREE_MB to override deliberately."
+fi
+
 BUILD_ID="$(date -u +%Y%m%d-%H%M%S)"
 COMMIT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 log "build ${BUILD_ID} commit ${COMMIT_SHA}"

@@ -24,6 +24,19 @@ chmod 700 "${RUNTIME_DIR}/config" "${RUNTIME_DIR}/data/object-storage"
 PG_PASSWORD="$(openssl rand -base64 32 | tr -d '\n=+/' | head -c 40)"
 RATE_LIMIT_SECRET="$(openssl rand -hex 32)"
 
+# Size the storage quota to the host rather than hard-coding 8 GiB. A fixed cap
+# that exceeds free space is worse than no cap: it invites the service to fill a
+# disk it shares with other people's data. Default to a quarter of current free
+# space, capped at 8 GiB and floored at 256 MiB.
+FREE_MB="$(df -Pm "${RUNTIME_DIR}" | awk 'NR==2 {print $4}')"
+SUGGESTED_MB=$(( FREE_MB / 4 ))
+[ "${SUGGESTED_MB}" -gt 8192 ] && SUGGESTED_MB=8192
+[ "${SUGGESTED_MB}" -lt 256 ] && SUGGESTED_MB=256
+STORAGE_CAP_BYTES="${STORAGE_CAP_BYTES:-$(( SUGGESTED_MB * 1024 * 1024 ))}"
+STORAGE_PRESSURE_PERCENT="${STORAGE_PRESSURE_PERCENT:-80}"
+echo "host has ${FREE_MB} MB free; setting STORAGE_CAP_BYTES to ${SUGGESTED_MB} MB"
+echo "uploads are additionally refused above ${STORAGE_PRESSURE_PERCENT}% real disk use"
+
 umask 077
 cat > "${ENV_FILE}" <<EOF
 # Generated $(date -u +%FT%TZ) by scripts/bootstrap-secrets.sh
@@ -46,7 +59,8 @@ MAX_FILE_MB=50
 MAX_CAPSULE_MB=100
 MAX_FILES_PER_CAPSULE=10
 MAX_TTL_HOURS=24
-STORAGE_CAP_BYTES=8589934592
+STORAGE_CAP_BYTES=${STORAGE_CAP_BYTES}
+STORAGE_PRESSURE_PERCENT=${STORAGE_PRESSURE_PERCENT}
 EOF
 
 chmod 600 "${ENV_FILE}"

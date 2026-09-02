@@ -28,6 +28,7 @@ import { chunkKey, type StorageAdapter } from '@cinderlink/storage';
 import { createLogger } from './logger.ts';
 import { registerSecurity } from './security.ts';
 import { RateLimiter, clientAddress } from './rate-limit.ts';
+import { DiskGuard } from './disk.ts';
 
 export interface BuildOptions {
   storage: StorageAdapter;
@@ -152,11 +153,29 @@ export async function buildApp(options: BuildOptions): Promise<FastifyInstance> 
     return true;
   }
 
-  /** Refuse new writes when the disk is close to full (§18). */
+  /**
+   * Refuse new writes when the disk is close to full, or our own quota is spent
+   * (§18).
+   *
+   * Checks REAL filesystem utilisation, not just an accounting counter. A byte
+   * cap cannot tell you whether there is room on a host you share with other
+   * services.
+   */
+  // Both bounds are resolved from THIS app's environment. `limits` is captured
+  // from process.env at module import, so using it directly here would repeat
+  // the bug already fixed for rate limits: buildApp({ env }) would silently
+  // ignore the caller's threshold.
+  const diskGuard = new DiskGuard({
+    storageRoot: appEnv.STORAGE_ROOT ?? '/tmp',
+    pressurePercent: Number.parseInt(
+      appEnv.STORAGE_PRESSURE_PERCENT ?? String(limits.storagePressurePercent),
+      10,
+    ),
+    capBytes: Number.parseInt(appEnv.STORAGE_CAP_BYTES ?? String(8 * 1024 * 1024 * 1024), 10),
+  });
+
   async function storageHasRoom(additionalBytes: number): Promise<boolean> {
-    const used = await db.getStorageUsage();
-    const cap = Number.parseInt(appEnv.STORAGE_CAP_BYTES ?? String(8 * 1024 * 1024 * 1024), 10);
-    return used + additionalBytes <= (cap * limits.storagePressurePercent) / 100;
+    return (await diskGuard.check(additionalBytes, await db.getStorageUsage())) === null;
   }
 
   // ---------------------------------------------------------------- health

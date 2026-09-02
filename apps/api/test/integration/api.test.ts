@@ -70,6 +70,12 @@ beforeAll(async () => {
       RL_CREATE_PER_HOUR: '100000',
       RL_CLAIM_PER_HOUR: '100000',
       RL_CHUNK_PER_HOUR: '100000',
+      // The disk guard checks REAL filesystem use. CI machines are routinely
+      // past 80% full, which would refuse every upload and make these tests
+      // fail for a reason unrelated to what they assert. Pressure behaviour is
+      // tested explicitly below instead.
+      STORAGE_ROOT: storageRoot,
+      STORAGE_PRESSURE_PERCENT: '100',
     },
   });
   await app.ready();
@@ -470,7 +476,14 @@ describe('rate limiting (§18)', () => {
     const limited = await buildApp({
       storage,
       redis,
-      env: { ...process.env, APP_MODE: 'preview', ALLOW_INSECURE_PREVIEW: 'true', RL_CREATE_PER_HOUR: '3' },
+      env: {
+        ...process.env,
+        APP_MODE: 'preview',
+        ALLOW_INSECURE_PREVIEW: 'true',
+        RL_CREATE_PER_HOUR: '3',
+        STORAGE_ROOT: storageRoot,
+        STORAGE_PRESSURE_PERCENT: '100',
+      },
     });
     await limited.ready();
     try {
@@ -499,6 +512,71 @@ describe('rate limiting (§18)', () => {
     for (const key of keys) {
       expect(key).not.toContain('203.0.113.45');
       expect(key).not.toMatch(/\d+\.\d+\.\d+\.\d+/);
+    }
+  });
+});
+
+describe('storage pressure (§18)', () => {
+  it('refuses uploads with 507 when the real disk is past the threshold', async () => {
+    // A threshold of 1% is above no real filesystem, so the guard must refuse.
+    // This is the case that matters on a shared host: our own accounting says
+    // zero bytes stored, and the old cap-only check would have said yes.
+    const pressured = await buildApp({
+      storage,
+      redis,
+      env: {
+        ...process.env,
+        APP_MODE: 'preview',
+        ALLOW_INSECURE_PREVIEW: 'true',
+        RL_CREATE_PER_HOUR: '100000',
+        STORAGE_ROOT: storageRoot,
+        STORAGE_PRESSURE_PERCENT: '1',
+      },
+    });
+    await pressured.ready();
+    try {
+      const capsule = await pressured.inject({
+        method: 'POST',
+        url: '/api/v1/capsules',
+        payload: capsuleBody(),
+      });
+      expect(capsule.statusCode).toBe(507);
+      expect(capsule.json().error).toBe('storage-full');
+
+      const upload = await pressured.inject({
+        method: 'POST',
+        url: '/api/v1/uploads',
+        payload: { capsuleId: newId(), expectedChunks: 1 },
+      });
+      expect(upload.statusCode).toBe(507);
+    } finally {
+      await pressured.close();
+    }
+  });
+
+  it('accepts uploads when the threshold leaves headroom', async () => {
+    const relaxed = await buildApp({
+      storage,
+      redis,
+      env: {
+        ...process.env,
+        APP_MODE: 'preview',
+        ALLOW_INSECURE_PREVIEW: 'true',
+        RL_CREATE_PER_HOUR: '100000',
+        STORAGE_ROOT: storageRoot,
+        STORAGE_PRESSURE_PERCENT: '100',
+      },
+    });
+    await relaxed.ready();
+    try {
+      const response = await relaxed.inject({
+        method: 'POST',
+        url: '/api/v1/capsules',
+        payload: capsuleBody(),
+      });
+      expect(response.statusCode).toBe(201);
+    } finally {
+      await relaxed.close();
     }
   });
 });
