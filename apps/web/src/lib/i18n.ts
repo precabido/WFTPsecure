@@ -253,10 +253,23 @@ export function formatDuration(ms: number, locale: Locale): string {
   const seconds = totalSeconds % 60;
 
   const unit = locale === 'es' ? { d: 'd', h: 'h', m: 'min', s: 's' } : { d: 'd', h: 'h', m: 'm', s: 's' };
-  if (days > 0) return `${days}${unit.d} ${hours}${unit.h}`;
-  if (hours > 0) return `${hours}${unit.h} ${minutes}${unit.m}`;
-  if (minutes > 0) return `${minutes}${unit.m} ${seconds}${unit.s}`;
-  return `${seconds}${unit.s}`;
+
+  // Show at most two units, and omit a trailing zero one: a preset of exactly
+  // one hour should read "1 h", not "1h 0min".
+  const parts: string[] = [];
+  if (days > 0) {
+    parts.push(`${days} ${unit.d}`);
+    if (hours > 0) parts.push(`${hours} ${unit.h}`);
+  } else if (hours > 0) {
+    parts.push(`${hours} ${unit.h}`);
+    if (minutes > 0) parts.push(`${minutes} ${unit.m}`);
+  } else if (minutes > 0) {
+    parts.push(`${minutes} ${unit.m}`);
+    if (seconds > 0) parts.push(`${seconds} ${unit.s}`);
+  } else {
+    parts.push(`${seconds} ${unit.s}`);
+  }
+  return parts.join(' ');
 }
 
 export function formatBytes(bytes: number): string {

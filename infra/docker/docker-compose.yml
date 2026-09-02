@@ -1,0 +1,188 @@
+# Docker Compose for the isolated preview (§30).
+#
+# Isolation rules this file enforces:
+#   - Exactly ONE published port: the gateway on 9999. Postgres, Redis, the API
+#     and the web app are reachable only on the project's private network.
+#   - A dedicated network and volume prefix, so nothing here can collide with or
+#     adopt another project's resources.
+#   - Every service runs as a non-root user with no-new-privileges and a dropped
+#     capability set; the ones that can run read-only do.
+#
+# Run with an explicit project name so container and volume names are namespaced:
+#   docker compose -p cinderlink_preview_9999 -f infra/docker/docker-compose.yml up -d
+
+name: cinderlink_preview_9999
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+x-hardening: &hardening
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  restart: unless-stopped
+  logging: *default-logging
+
+services:
+  gateway:
+    # nginx unprivileged: listens on 8080 as a non-root user, so no capability
+    # to bind a low port is needed and the container never runs as root.
+    image: nginxinc/nginx-unprivileged:1.27.3-alpine
+    <<: *hardening
+    # THE ONLY PUBLISHED PORT IN THIS PROJECT.
+    ports:
+      - "9999:8080"
+    volumes:
+      - ../gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+      - /var/cache/nginx:size=32m
+      - /var/run:size=8m
+    networks: [internal]
+    depends_on:
+      web:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  web:
+    build:
+      context: ../..
+      dockerfile: infra/docker/web.Dockerfile
+    <<: *hardening
+    user: "10001:10001"
+    expose: ["3000"]
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+    env_file:
+      - /srv/cinderlink/config/preview.env
+    networks: [internal]
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/api.Dockerfile
+    <<: *hardening
+    user: "10001:10001"
+    expose: ["4000"]
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      HOST: "0.0.0.0"
+      STORAGE_DRIVER: filesystem
+      STORAGE_ROOT: /data/object-storage
+      TRUST_PROXY: "true"
+      RUN_MIGRATIONS: "true"
+    env_file:
+      - /srv/cinderlink/config/preview.env
+    volumes:
+      # Blob storage lives OUTSIDE any directory the gateway serves (§14).
+      - /srv/cinderlink/data/object-storage:/data/object-storage
+    networks: [internal]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: infra/docker/worker.Dockerfile
+    <<: *hardening
+    user: "10001:10001"
+    environment:
+      NODE_ENV: production
+      STORAGE_DRIVER: filesystem
+      STORAGE_ROOT: /data/object-storage
+    env_file:
+      - /srv/cinderlink/config/preview.env
+    volumes:
+      - /srv/cinderlink/data/object-storage:/data/object-storage
+    networks: [internal]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16.6-alpine
+    <<: *hardening
+    # NOT published to the host — reachable only on the internal network (§39).
+    expose: ["5432"]
+    environment:
+      POSTGRES_DB: cinderlink
+      POSTGRES_USER: cinderlink
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    env_file:
+      - /srv/cinderlink/config/preview.env
+    volumes:
+      - /srv/cinderlink/data/postgres:/var/lib/postgresql/data
+    networks: [internal]
+    cap_add:
+      # Postgres drops privileges to the postgres user at startup.
+      - CHOWN
+      - DAC_READ_SEARCH
+      - FOWNER
+      - SETGID
+      - SETUID
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cinderlink -d cinderlink"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  redis:
+    image: redis:7.4.1-alpine
+    <<: *hardening
+    expose: ["6379"]
+    # Ephemeral by design: Redis holds rate-limit counters and short locks only,
+    # never capsule state, so persistence would store metadata for no benefit.
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    networks: [internal]
+    user: "999:1000"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+networks:
+  internal:
+    name: cinderlink_preview_9999_net
+    driver: bridge
+    # No inter-project reachability: this network is created and owned here.
+    internal: false

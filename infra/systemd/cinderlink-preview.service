@@ -1,0 +1,35 @@
+# Bring this project's compose stack up after a reboot (§5).
+#
+# Scope is deliberately narrow: this unit starts and stops ONE docker compose
+# project and touches nothing else on the host. It does not manage nginx, other
+# previews, or any service it did not create.
+#
+# Install:
+#   cp infra/systemd/cinderlink-preview.service /etc/systemd/system/
+#   systemctl daemon-reload
+#   systemctl enable --now cinderlink-preview.service
+
+[Unit]
+Description=Cinderlink preview (isolated compose project cinderlink_preview_9999)
+Documentation=file:///root/codex-isolated/cinderlink-preview-9999/docs/runbook.md
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/root/codex-isolated/cinderlink-preview-9999
+Environment=COMPOSE_PROJECT_NAME=cinderlink_preview_9999
+
+ExecStart=/usr/bin/docker compose -p cinderlink_preview_9999 -f infra/docker/docker-compose.yml up -d --remove-orphans
+# `down` without -v: volumes hold the only copy of live capsule metadata, and
+# removing them to "clean up" would destroy user data (§36).
+ExecStop=/usr/bin/docker compose -p cinderlink_preview_9999 -f infra/docker/docker-compose.yml down
+ExecReload=/usr/bin/docker compose -p cinderlink_preview_9999 -f infra/docker/docker-compose.yml up -d
+
+TimeoutStartSec=300
+Restart=no
+
+[Install]
+WantedBy=multi-user.target
