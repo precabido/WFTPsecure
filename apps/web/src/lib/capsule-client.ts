@@ -90,9 +90,17 @@ export interface Progress {
 export type ProgressFn = (progress: Progress) => void;
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  // Declare a JSON content-type ONLY when a body is actually being sent.
+  // Fastify rejects `content-type: application/json` with an empty body
+  // (FST_ERR_CTP_EMPTY_JSON_BODY), which broke every bodyless POST in the
+  // product — claim, revoke and retrieval-complete among them.
+  const headers: Record<string, string> = { ...((init?.headers as Record<string, string>) ?? {}) };
+  if (init?.body !== undefined && init.body !== null && headers['content-type'] === undefined) {
+    headers['content-type'] = 'application/json';
+  }
   const response = await fetch(path, {
     ...init,
-    headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
+    headers,
     // Same-origin only; CORS is disabled server-side (§16).
     credentials: 'omit',
   });
@@ -174,7 +182,7 @@ export async function createCapsule(
         });
       }
 
-      await api(`/api/v1/uploads/${session.uploadId}/complete`, { method: 'POST', body: '{}' });
+      await api(`/api/v1/uploads/${session.uploadId}/complete`, { method: 'POST' });
 
       fileEntries.push({
         objectId: session.objectId,

@@ -82,6 +82,30 @@ export async function buildApp(options: BuildOptions): Promise<FastifyInstance> 
     (_request, body, done) => done(null, body),
   );
 
+  /**
+   * Tolerate an empty JSON body.
+   *
+   * Several endpoints legitimately take no body — claim, revoke, close,
+   * retrieval-complete. Fastify's default JSON parser rejects an empty body
+   * whenever `content-type: application/json` is present, which is a reasonable
+   * default for a data-carrying API but wrong for these routes: it makes
+   * `curl -X POST -H 'content-type: application/json' .../claim` fail, and it
+   * made the browser client fail until it stopped sending the header. Treating
+   * an empty body as `{}` accepts both shapes and keeps genuinely malformed
+   * JSON a 400.
+   */
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (_request, body, done) => {
+    const text = typeof body === 'string' ? body.trim() : '';
+    if (text === '') return done(null, {});
+    try {
+      done(null, JSON.parse(text) as unknown);
+    } catch {
+      const error = new Error('malformed JSON body') as Error & { statusCode?: number };
+      error.statusCode = 400;
+      done(error, undefined);
+    }
+  });
+
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof z.ZodError) {
       // Report that validation failed, not which field or what was expected —
@@ -89,8 +113,18 @@ export async function buildApp(options: BuildOptions): Promise<FastifyInstance> 
       request.log.warn({ issues: error.issues.length }, 'validation failed');
       return reply.code(400).send({ error: 'invalid-request' });
     }
-    if ((error as { statusCode?: number }).statusCode === 413) {
-      return reply.code(413).send({ error: 'payload-too-large' });
+    // Fastify's own errors (malformed JSON, empty body with a JSON
+    // content-type, payload too large) carry an accurate 4xx statusCode.
+    // Blanket-500ing them was wrong twice over: it told the caller the server
+    // had broken when the request had, and it turned every client mistake into
+    // an error-level log line that would page someone. Preserve the status and
+    // log a bad request at warn.
+    const statusCode = (error as { statusCode?: number }).statusCode;
+    if (typeof statusCode === 'number' && statusCode >= 400 && statusCode < 500) {
+      request.log.warn({ code: (error as { code?: string }).code, statusCode }, 'bad request');
+      return reply.code(statusCode).send({
+        error: statusCode === 413 ? 'payload-too-large' : 'invalid-request',
+      });
     }
     request.log.error({ err: error }, 'request failed');
     return reply.code(500).send({ error: 'internal-error' });

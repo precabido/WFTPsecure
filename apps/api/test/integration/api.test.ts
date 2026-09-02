@@ -518,6 +518,53 @@ describe('unavailable states are indistinguishable to a prober (§21)', () => {
     expect(consumed.json().error).toBe('unavailable');
   });
 
+  it('accepts a bodyless POST for claim, revoke and retrieval-complete', async () => {
+    // Regression: the client sent `content-type: application/json` with no
+    // body on these routes. Fastify rejects that (FST_ERR_CTP_EMPTY_JSON_BODY),
+    // and the error handler turned the 400 into a 500 — so claim, revoke and
+    // complete all failed in the browser while passing every server-side test
+    // that happened to send a body.
+    const body = capsuleBody();
+    const created = await app.inject({ method: 'POST', url: '/api/v1/capsules', payload: body });
+    const managementToken = created.json().managementToken as string;
+
+    const claim = await app.inject({
+      method: 'POST',
+      url: `/api/v1/capsules/${body.id}/claim`,
+      headers: { 'content-type': 'application/json' },
+    });
+    expect(claim.statusCode).toBe(200);
+
+    const complete = await app.inject({
+      method: 'POST',
+      url: '/api/v1/retrieval/complete',
+      headers: {
+        authorization: `Bearer ${claim.json().retrievalToken}`,
+        'content-type': 'application/json',
+      },
+    });
+    expect(complete.statusCode).toBe(204);
+
+    const revoke = await app.inject({
+      method: 'POST',
+      url: `/api/v1/manage/${body.id}/revoke`,
+      headers: { authorization: `Bearer ${managementToken}`, 'content-type': 'application/json' },
+    });
+    expect(revoke.statusCode).toBe(200);
+  });
+
+  it('reports a malformed body as 4xx, never as a server error', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/capsules',
+      headers: { 'content-type': 'application/json' },
+      payload: '{ this is not json',
+    });
+    // A client mistake must not be reported as the server breaking.
+    expect(response.statusCode).toBeGreaterThanOrEqual(400);
+    expect(response.statusCode).toBeLessThan(500);
+  });
+
   it('never leaks a stack trace or internal path on error', async () => {
     const response = await app.inject({ method: 'POST', url: '/api/v1/capsules', payload: { bad: true } });
     expect(response.statusCode).toBe(400);

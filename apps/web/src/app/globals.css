@@ -26,7 +26,8 @@
   /* Text: graphite rather than black, which reads as heavy at body sizes. */
   --text-primary: #1c1b1a;
   --text-secondary: #57534f;
-  --text-tertiary: #8a8580;
+  /* 5.27:1 on --surface-base, 4.92:1 on --surface-sunken (WCAG AA). */
+  --text-tertiary: #6e6862;
   --text-inverse: #fbfaf9;
 
   --border-subtle: #e4e0dc;
@@ -35,21 +36,25 @@
 
   /* One accent. The violet→cyan gradient appears only on the seal mark and
      the primary CTA — never as a page background. */
-  --accent: #6d4aff;
-  --accent-hover: #5c3ae8;
+  /* Deepened from #6d4aff so the accent also passes AA as TEXT on
+     --accent-soft (5.60:1) and as a button background under white (6.57:1).
+     The brighter original survives in --accent-gradient, which is decorative
+     only and never carries text. */
+  --accent: #5b34f0;
+  --accent-hover: #4f2ad2;
   --accent-soft: #efeaff;
   --accent-border: #d5c9ff;
   --accent-gradient: linear-gradient(135deg, #6d4aff 0%, #22b8cf 100%);
 
-  --danger: #d64545;
+  --danger: #b82727;  /* 5.40:1 on --danger-soft */
   --danger-soft: #fdeaea;
   --danger-border: #f5c2c2;
 
-  --safe: #2f8f5b;
+  --safe: #226b44;    /* 5.75:1 on --safe-soft */
   --safe-soft: #e8f5ee;
   --safe-border: #b8e0c9;
 
-  --warn: #b7791f;
+  --warn: #8a5b0d;    /* 5.33:1 on --warn-soft */
   --warn-soft: #fdf3e2;
   --warn-border: #f0dcb4;
 
@@ -83,7 +88,8 @@
 
   --text-primary: #f2f0ee;
   --text-secondary: #a8a29c;
-  --text-tertiary: #74706b;
+  /* 5.78:1 on --surface-base, 5.36:1 on --surface-raised (WCAG AA). */
+  --text-tertiary: #918c85;
   --text-inverse: #17171a;
 
   --border-subtle: #26262b;

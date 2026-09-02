@@ -75,10 +75,17 @@ export default function ManagePage() {
     if (token === null) return;
     setBusy(true);
     try {
+      // content-type is set only when a body exists: Fastify rejects an empty
+      // body that claims to be JSON, and `revoke` legitimately has no body.
+      const headers: Record<string, string> = {
+        authorization: `Bearer ${token}`,
+        ...((init.headers as Record<string, string>) ?? {}),
+      };
+      if (init.body !== undefined && init.body !== null) headers['content-type'] = 'application/json';
       await fetch(`/api/v1/manage/${capsuleId}/${path}`, {
         ...init,
         method: init.method ?? 'POST',
-        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json', ...(init.headers ?? {}) },
+        headers,
         credentials: 'omit',
       });
       await load(token);
