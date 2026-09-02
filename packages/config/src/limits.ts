@@ -9,11 +9,15 @@
 
 const MiB = 1024 * 1024;
 
-function int(name: string, fallback: number): number {
-  const raw = process.env[name];
+function intFrom(source: NodeJS.ProcessEnv, name: string, fallback: number): number {
+  const raw = source[name];
   if (raw === undefined || raw === '') return fallback;
   const parsed = Number.parseInt(raw, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function int(name: string, fallback: number): number {
+  return intFrom(process.env, name, fallback);
 }
 
 export const limits = {
@@ -78,11 +82,34 @@ export type TtlPresetId = (typeof ttlPresets)[number]['id'];
 /** Read-window presets, in seconds, for burn-after-open (§10). */
 export const readWindowPresets = [10, 30, 60, 300] as const;
 
-export const rateLimits = {
-  createPerHour: int('RL_CREATE_PER_HOUR', 30),
-  claimPerHour: int('RL_CLAIM_PER_HOUR', 120),
+export interface RateLimits {
+  createPerHour: number;
+  claimPerHour: number;
   /** Failed claims are limited far harder — this is the enumeration surface. */
-  failedClaimPerHour: int('RL_FAILED_CLAIM_PER_HOUR', 40),
-  uploadChunkPerHour: int('RL_CHUNK_PER_HOUR', 2000),
-  concurrentUploads: int('RL_CONCURRENT_UPLOADS', 4),
-} as const;
+  failedClaimPerHour: number;
+  uploadChunkPerHour: number;
+  concurrentUploads: number;
+}
+
+/**
+ * Resolve rate limits from a specific environment.
+ *
+ * Takes `source` explicitly rather than reading process.env at module scope.
+ * The static `limits` object above is read once at import, which is correct for
+ * values baked into Zod schemas — but rate limits are per-application state, and
+ * an app that accepts an `env` argument must actually honour it. Capturing them
+ * at import time made `buildApp({ env })` silently ignore the caller's limits,
+ * which a test caught by exhausting a window that never closed.
+ */
+export function resolveRateLimits(source: NodeJS.ProcessEnv = process.env): RateLimits {
+  return {
+    createPerHour: intFrom(source, 'RL_CREATE_PER_HOUR', 30),
+    claimPerHour: intFrom(source, 'RL_CLAIM_PER_HOUR', 120),
+    failedClaimPerHour: intFrom(source, 'RL_FAILED_CLAIM_PER_HOUR', 40),
+    uploadChunkPerHour: intFrom(source, 'RL_CHUNK_PER_HOUR', 2000),
+    concurrentUploads: intFrom(source, 'RL_CONCURRENT_UPLOADS', 4),
+  };
+}
+
+/** Process-level defaults, for callers with no per-app environment. */
+export const rateLimits: RateLimits = resolveRateLimits();

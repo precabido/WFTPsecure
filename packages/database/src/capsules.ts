@@ -463,3 +463,38 @@ export async function findByManagementToken(capsuleId: string, token: string): P
   );
   return rows[0]?.ok === true;
 }
+
+export interface CapsuleObjectRef {
+  objectId: string;
+  storageKey: string;
+  chunkCount: number;
+}
+
+/** Objects belonging to a capsule, for the retrieval manifest response. */
+export async function listCapsuleObjects(capsuleId: string): Promise<CapsuleObjectRef[]> {
+  const { rows } = await getPool().query<{ id: string; storage_key: string; chunk_count: number }>(
+    `SELECT id, storage_key, chunk_count FROM capsule_objects WHERE capsule_id = $1 ORDER BY created_at`,
+    [capsuleId],
+  );
+  return rows.map((r) => ({ objectId: r.id, storageKey: r.storage_key, chunkCount: r.chunk_count }));
+}
+
+/**
+ * Look up one object *scoped to its capsule*.
+ *
+ * The capsule_id predicate is load-bearing: without it, a valid retrieval lease
+ * for capsule A could be used to fetch chunks belonging to capsule B simply by
+ * passing B's object id.
+ */
+export async function findCapsuleObject(
+  capsuleId: string,
+  objectId: string,
+): Promise<CapsuleObjectRef | null> {
+  const { rows } = await getPool().query<{ id: string; storage_key: string; chunk_count: number }>(
+    `SELECT id, storage_key, chunk_count FROM capsule_objects WHERE capsule_id = $1 AND id = $2`,
+    [capsuleId, objectId],
+  );
+  const row = rows[0];
+  if (row === undefined) return null;
+  return { objectId: row.id, storageKey: row.storage_key, chunkCount: row.chunk_count };
+}

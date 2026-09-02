@@ -1,0 +1,24 @@
+{
+  "name": "@cinderlink/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --experimental-strip-types --watch src/server.ts",
+    "start": "node --experimental-strip-types src/server.ts"
+  },
+  "dependencies": {
+    "@cinderlink/config": "workspace:*",
+    "@cinderlink/contracts": "workspace:*",
+    "@cinderlink/crypto": "workspace:*",
+    "@cinderlink/database": "workspace:*",
+    "@cinderlink/storage": "workspace:*",
+    "fastify": "5.2.0",
+    "ioredis": "5.4.2",
+    "pino": "9.5.0",
+    "zod": "3.24.1"
+  },
+  "devDependencies": {
+    "@cinderlink/test-utils": "workspace:*"
+  }
+}
