@@ -9,8 +9,17 @@
  */
 
 import pino from 'pino';
+import type { FastifyBaseLogger } from 'fastify';
 
-export function createLogger() {
+/**
+ * Returns the logger typed as FastifyBaseLogger.
+ *
+ * Annotating the return type matters: handing Fastify a concrete pino `Logger`
+ * makes it infer a narrower instance type, so `buildApp` could no longer be
+ * declared as returning a plain `FastifyInstance`. Widening here keeps the
+ * public signature honest instead of casting at the call site.
+ */
+export function createLogger(): FastifyBaseLogger {
   return pino({
     level: process.env.LOG_LEVEL ?? 'info',
     redact: {
@@ -58,4 +67,4 @@ export function createLogger() {
   });
 }
 
-export type Logger = ReturnType<typeof createLogger>;
+export type Logger = FastifyBaseLogger;

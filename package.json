@@ -7,7 +7,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "typecheck": "tsc -b tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit && pnpm --filter @cinderlink/web exec tsc --noEmit -p tsconfig.json",
     "test": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "test:all": "vitest run",

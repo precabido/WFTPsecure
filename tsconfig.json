@@ -1,0 +1,35 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "noEmit": true,
+    // The API and worker run under Node's native TypeScript stripping, which
+    // requires explicit .ts specifiers in imports. This flag lets tsc accept
+    // the same specifiers instead of demanding extensionless or .js ones.
+    "allowImportingTsExtensions": true,
+    "types": ["node"],
+    "paths": {
+      "@cinderlink/config": ["./packages/config/src/index.ts"],
+      "@cinderlink/config/*": ["./packages/config/src/*"],
+      "@cinderlink/crypto": ["./packages/crypto/src/index.ts"],
+      "@cinderlink/contracts": ["./packages/contracts/src/index.ts"],
+      "@cinderlink/database": ["./packages/database/src/index.ts"],
+      "@cinderlink/database/*": ["./packages/database/src/*"],
+      "@cinderlink/storage": ["./packages/storage/src/index.ts"],
+      "@cinderlink/test-utils": ["./packages/test-utils/src/index.ts"]
+    }
+  },
+  "include": [
+    "packages/*/src/**/*.ts",
+    "packages/*/test/**/*.ts",
+    "packages/*/test-integration/**/*.ts",
+    "apps/api/src/**/*.ts",
+    "apps/api/test/**/*.ts",
+    "apps/worker/src/**/*.ts",
+    "apps/worker/test/**/*.ts",
+    "e2e/**/*.ts",
+    "scripts/lib/**/*.ts",
+    "*.config.ts"
+  ],
+  "exclude": ["node_modules", "**/node_modules", "apps/web/.next", "**/dist"]
+}
