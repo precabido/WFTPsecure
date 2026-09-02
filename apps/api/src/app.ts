@@ -171,6 +171,10 @@ export async function buildApp(options: BuildOptions): Promise<FastifyInstance> 
       appEnv.STORAGE_PRESSURE_PERCENT ?? String(limits.storagePressurePercent),
       10,
     ),
+    // Absolute floor. On a shared volume this, not the percentage, is what
+    // keeps the host safe: it guarantees we never write the disk below a
+    // fixed reserve regardless of how full other tenants have made it.
+    minFreeBytes: Number.parseInt(appEnv.STORAGE_MIN_FREE_BYTES ?? String(2 * 1024 * 1024 * 1024), 10),
     capBytes: Number.parseInt(appEnv.STORAGE_CAP_BYTES ?? String(8 * 1024 * 1024 * 1024), 10),
   });
 

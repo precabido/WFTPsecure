@@ -12,9 +12,23 @@
  * A byte cap answers "have we stored too much?"; it cannot answer "is there
  * room?".
  *
- * So we now check both, and the stricter one wins:
- *   1. actual filesystem utilisation at the storage root, and
- *   2. the configured cap on our own stored bytes.
+ * So we now check three bounds, and the strictest wins:
+ *   1. an absolute floor of free bytes that must remain,
+ *   2. filesystem utilisation as a percentage, and
+ *   3. the configured cap on our own stored bytes.
+ *
+ * Why both (1) and (2): they protect differently shaped disks, and neither
+ * alone is right for both.
+ *
+ *   - A PERCENTAGE is the sensible guard on a dedicated volume, where "80%
+ *     full" genuinely means "running out".
+ *   - An ABSOLUTE FLOOR is the sensible guard on a large volume SHARED with
+ *     other services, where 86% of 387 GB still leaves 52 GB — far more than
+ *     this service will ever use, yet a percentage rule would refuse every
+ *     upload while the disk is in no danger at all.
+ *
+ * Operators on a shared host should raise pressurePercent and rely on
+ * minFreeBytes, which is the bound that actually tracks danger.
  */
 
 import { statfs } from 'node:fs/promises';
@@ -44,6 +58,11 @@ export interface DiskGuardOptions {
   storageRoot: string;
   /** Refuse writes at or above this filesystem utilisation. */
   pressurePercent: number;
+  /**
+   * Refuse writes that would leave less than this much free.
+   * The meaningful bound on a volume shared with other services.
+   */
+  minFreeBytes: number;
   /** Independent ceiling on bytes this deployment may store. */
   capBytes: number;
   /** How long to reuse a statfs result, in ms. */
@@ -96,9 +115,11 @@ export class DiskGuard {
 
     if (status.usedPercent >= this.#options.pressurePercent) return 'disk-pressure';
 
-    // Also project forward: a single large upload must not push us past the
-    // threshold, even if we are under it at this instant.
+    // Project forward: a single large upload must not cross either bound from
+    // just under it.
     const projectedAvailable = status.availableBytes - additionalBytes;
+    if (projectedAvailable < this.#options.minFreeBytes) return 'disk-pressure';
+
     const projectedUsedPercent =
       status.totalBytes === 0 ? 100 : ((status.totalBytes - projectedAvailable) / status.totalBytes) * 100;
     if (projectedUsedPercent >= this.#options.pressurePercent) return 'disk-pressure';

@@ -73,13 +73,20 @@ fi
 # from the UI.
 PRESSURE_PCT="$(grep -E '^STORAGE_PRESSURE_PERCENT=' "${ENV_FILE}" | cut -d= -f2 | tr -d '\r' || true)"
 PRESSURE_PCT="${PRESSURE_PCT:-80}"
+MIN_FREE_BYTES="$(grep -E '^STORAGE_MIN_FREE_BYTES=' "${ENV_FILE}" | cut -d= -f2 | tr -d '\r' || true)"
+MIN_FREE_MB=$(( ${MIN_FREE_BYTES:-0} / 1024 / 1024 ))
 if [ "${USED_PCT}" -ge "${PRESSURE_PCT}" ]; then
   TARGET_MB=$(( (100 - PRESSURE_PCT) * $(df -Pm / | awk 'NR==2 {print $2}') / 100 ))
   die "disk is ${USED_PCT}% used, at or above the ${PRESSURE_PCT}% upload threshold. \
 The stack would start and then refuse every upload with 507. \
-Free space until at least ${TARGET_MB} MB are available, or set \
-STORAGE_PRESSURE_PERCENT higher in ${ENV_FILE} if you accept the risk of \
-filling a disk shared with other services."
+Either free space until ${TARGET_MB} MB are available, or - on a large volume \
+shared with other services, where a percentage is the wrong metric - raise \
+STORAGE_PRESSURE_PERCENT in ${ENV_FILE} and rely on STORAGE_MIN_FREE_BYTES \
+(currently ${MIN_FREE_MB} MB) to keep a real reserve."
+fi
+if [ "${MIN_FREE_MB}" -gt 0 ] && [ "${FREE_MB}" -le "${MIN_FREE_MB}" ]; then
+  die "only ${FREE_MB} MB free, at or below the ${MIN_FREE_MB} MB reserve. \
+Uploads would be refused immediately. Free space first."
 fi
 
 BUILD_ID="$(date -u +%Y%m%d-%H%M%S)"
