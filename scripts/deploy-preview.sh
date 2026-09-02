@@ -65,6 +65,23 @@ building here risks filling the disk and taking down other services on this host
 Set REQUIRED_FREE_MB to override deliberately."
 fi
 
+# Separate concern from "can we build": once running, the API refuses uploads
+# above STORAGE_PRESSURE_PERCENT of REAL disk use. If the host is already past
+# that line, the deploy would succeed, /healthz would return ok, and every
+# attempt to create a capsule would return 507 — a service that is up and
+# useless. Fail here with the actual numbers rather than let that be discovered
+# from the UI.
+PRESSURE_PCT="$(grep -E '^STORAGE_PRESSURE_PERCENT=' "${ENV_FILE}" | cut -d= -f2 | tr -d '\r' || true)"
+PRESSURE_PCT="${PRESSURE_PCT:-80}"
+if [ "${USED_PCT}" -ge "${PRESSURE_PCT}" ]; then
+  TARGET_MB=$(( (100 - PRESSURE_PCT) * $(df -Pm / | awk 'NR==2 {print $2}') / 100 ))
+  die "disk is ${USED_PCT}% used, at or above the ${PRESSURE_PCT}% upload threshold. \
+The stack would start and then refuse every upload with 507. \
+Free space until at least ${TARGET_MB} MB are available, or set \
+STORAGE_PRESSURE_PERCENT higher in ${ENV_FILE} if you accept the risk of \
+filling a disk shared with other services."
+fi
+
 BUILD_ID="$(date -u +%Y%m%d-%H%M%S)"
 COMMIT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 log "build ${BUILD_ID} commit ${COMMIT_SHA}"
