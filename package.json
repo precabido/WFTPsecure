@@ -1,0 +1,26 @@
+{
+  "name": "cinderlink",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc -b tsconfig.build.json",
+    "test": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "test:all": "vitest run",
+    "e2e": "playwright test",
+    "migrate": "node --experimental-strip-types packages/database/src/migrate.ts",
+    "dev:api": "node --experimental-strip-types apps/api/src/server.ts",
+    "dev:worker": "node --experimental-strip-types apps/worker/src/main.ts",
+    "verify:no-plaintext": "bash scripts/verify-no-plaintext.sh"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "@vitest/coverage-v8": "2.1.8",
+    "typescript": "5.7.2",
+    "vitest": "2.1.8"
+  }
+}
