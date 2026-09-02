@@ -24,13 +24,15 @@ export interface StorageAdapter {
   list(prefix: string): Promise<string[]>;
 }
 
+export type StorageErrorCode = 'not-found' | 'invalid-key' | 'io';
+
 export class StorageError extends Error {
   override readonly name = 'StorageError';
-  constructor(
-    message: string,
-    readonly code: 'not-found' | 'invalid-key' | 'io',
-  ) {
+  readonly code: StorageErrorCode;
+
+  constructor(message: string, code: StorageErrorCode) {
     super(message);
+    this.code = code;
   }
 }
 

@@ -59,13 +59,15 @@ export interface WrappedRootKey {
   kdf: KdfParams;
 }
 
+export type PasswordErrorCode = 'wrong-password' | 'bad-params';
+
 export class PasswordError extends Error {
   override readonly name = 'PasswordError';
-  constructor(
-    message: string,
-    readonly code: 'wrong-password' | 'bad-params',
-  ) {
+  readonly code: PasswordErrorCode;
+
+  constructor(message: string, code: PasswordErrorCode) {
     super(message);
+    this.code = code;
   }
 }
 

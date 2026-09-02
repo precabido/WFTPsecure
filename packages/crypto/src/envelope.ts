@@ -32,18 +32,20 @@ const SUBKEY_MANIFEST = 1;
 
 export const ROOT_KEY_BYTES = 32;
 
+export type EnvelopeErrorCode =
+  | 'bad-key'
+  | 'tampered'
+  | 'unsupported-version'
+  | 'malformed'
+  | 'too-large';
+
 export class EnvelopeError extends Error {
   override readonly name = 'EnvelopeError';
-  constructor(
-    message: string,
-    readonly code:
-      | 'bad-key'
-      | 'tampered'
-      | 'unsupported-version'
-      | 'malformed'
-      | 'too-large',
-  ) {
+  readonly code: EnvelopeErrorCode;
+
+  constructor(message: string, code: EnvelopeErrorCode) {
     super(message);
+    this.code = code;
   }
 }
 

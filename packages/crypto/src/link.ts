@@ -28,13 +28,15 @@ export type CapsuleLinkSecret =
   | { mode: 'password'; wrapped: WrappedRootKey }
   | { mode: 'split' };
 
+export type LinkErrorCode = 'unsupported-version' | 'malformed';
+
 export class LinkError extends Error {
   override readonly name = 'LinkError';
-  constructor(
-    message: string,
-    readonly code: 'unsupported-version' | 'malformed',
-  ) {
+  readonly code: LinkErrorCode;
+
+  constructor(message: string, code: LinkErrorCode) {
     super(message);
+    this.code = code;
   }
 }
 
