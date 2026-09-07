@@ -7,7 +7,7 @@ with one person, once. Everything is encrypted in the browser before it leaves
 the device; the server stores ciphertext, random identifiers and the dates it
 needs to expire things — and nothing else.
 
-> **Status:** working software, verified by 185 automated tests. **Not
+> **Status:** working software, verified by 197 automated tests. **Not
 > externally audited.** The preview configuration runs over plain HTTP and is
 > for test data only — see [Limitations](#limitations).
 
@@ -112,8 +112,8 @@ analysis: [docs/threat-model.md](docs/threat-model.md).
 
 ```bash
 pnpm typecheck
-pnpm test                 # 80 crypto unit tests, no services needed
-pnpm test:integration     # 55 tests; needs PostgreSQL + Redis
+pnpm test                 # 90 unit tests (crypto + disk guard), no services needed
+pnpm test:integration     # 57 tests; needs PostgreSQL + Redis
 pnpm e2e                  # 50 browser tests; needs the stack running
 pnpm verify:no-plaintext  # canary sweep across DB, storage, Redis, logs
 ```

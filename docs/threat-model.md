@@ -173,5 +173,5 @@ any browser-based encryption service, including this one.
 
 **Not externally audited.** The implementation uses standard libsodium
 primitives rather than home-grown algorithms, and the properties above are
-covered by 135 automated tests — but that is not a substitute for independent
+covered by 197 automated tests — but that is not a substitute for independent
 cryptographic review, and this document does not claim otherwise.

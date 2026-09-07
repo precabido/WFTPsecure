@@ -68,7 +68,7 @@ the network. "Zero metadata" is not a claim this project makes.
 ## 8. Not audited
 
 No external cryptographic audit has taken place. The code uses standard
-libsodium primitives and has 135 automated tests covering the security
+libsodium primitives and has 197 automated tests covering the security
 properties, which is evidence — not assurance.
 
 ## 9. Large files on mobile browsers

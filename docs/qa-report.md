@@ -14,10 +14,11 @@ PostgreSQL 16.13, Redis 7, Chromium 1194 (Playwright 1.49.1).
 | Suite | Tests | Result |
 |---|---:|---|
 | Unit — cryptography | 80 | **80 passed** |
-| Integration — API, claim race, worker | 55 | **55 passed** |
+| Unit — disk pressure guard | 10 | **10 passed** |
+| Integration — API, claim race, worker | 57 | **57 passed** |
 | E2E — desktop Chrome + mobile viewport | 22 | **22 passed** |
 | Accessibility — axe-core + keyboard + responsive | 28 | **28 passed** |
-| **Total** | **185** | **185 passed, 0 failed** |
+| **Total** | **197** | **197 passed, 0 failed** |
 
 Plus two shell verifications: `verify-no-plaintext.sh` (PASS) and
 `verify-canary-detector.sh` (PASS — proves the former can fail).
@@ -70,7 +71,7 @@ rather than serialised by a small pool.
 | `claims_count` after the storm | **exactly 1** (no overshoot) |
 | 25 repeated status reads then a claim | **still claimable — GET never consumes** |
 
-### API (31 tests)
+### API (33 tests)
 
 Creation, validation, claim, retrieval leases, management, chunked uploads with
 resume, rate limiting, security headers, error shape.

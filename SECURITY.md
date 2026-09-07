@@ -39,7 +39,7 @@ not attack capsules you did not create.
 
 **This software has not been externally audited.** It uses standard libsodium
 primitives rather than home-grown algorithms, and the security properties are
-covered by 185 automated tests, but that is evidence — not assurance.
+covered by 197 automated tests, but that is evidence — not assurance.
 
 ## Design commitments
 
