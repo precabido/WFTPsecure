@@ -177,6 +177,7 @@ Change it there and it changes everywhere — UI, page titles, docs headers.
 
 | Document | Contents |
 |---|---|
+| [HANDOFF-DEPLOY.md](docs/HANDOFF-DEPLOY.md) | **First-deployment brief**, including what must not be touched on a shared host |
 | [architecture.md](docs/architecture.md) | Diagrams, flows, dependencies |
 | [crypto-format.md](docs/crypto-format.md) | Envelope spec, AAD, KDF, links |
 | [threat-model.md](docs/threat-model.md) | Adversaries, boundaries, residual risk |
