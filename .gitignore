@@ -1,0 +1,30 @@
+node_modules/
+dist/
+build/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# Secrets and environment — never commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+preview.env
+
+# Runtime data — never commit
+data/
+var/
+blobs/
+logs/
+*.log
+
+# Test / tooling output
+test-results/
+playwright-report/
+.playwright/
+.vitest/
+.tmp/
+.DS_Store

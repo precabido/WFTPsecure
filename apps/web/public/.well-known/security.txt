@@ -1,0 +1,7 @@
+Contact: mailto:security@example.invalid
+Preferred-Languages: es, en
+Canonical: /.well-known/security.txt
+Policy: /security
+
+# This service has not received an external cryptographic audit.
+# Please report findings privately before public disclosure.

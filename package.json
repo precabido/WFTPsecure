@@ -1,0 +1,29 @@
+{
+  "name": "cinderlink",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit && pnpm --filter @cinderlink/web exec tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "test:all": "vitest run",
+    "e2e": "playwright test",
+    "migrate": "node --experimental-strip-types packages/database/src/migrate.ts",
+    "dev:api": "node --experimental-strip-types apps/api/src/server.ts",
+    "dev:worker": "node --experimental-strip-types apps/worker/src/main.ts",
+    "verify:no-plaintext": "bash scripts/verify-no-plaintext.sh"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.10.1",
+    "@playwright/test": "1.49.1",
+    "@types/node": "22.10.2",
+    "@vitest/coverage-v8": "2.1.8",
+    "axe-core": "4.10.2",
+    "typescript": "5.7.2",
+    "vitest": "2.1.8"
+  }
+}

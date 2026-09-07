@@ -1,0 +1,16 @@
+{
+  "name": "@cinderlink/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --experimental-strip-types src/main.ts"
+  },
+  "dependencies": {
+    "@cinderlink/config": "workspace:*",
+    "@cinderlink/database": "workspace:*",
+    "@cinderlink/storage": "workspace:*",
+    "ioredis": "5.4.2",
+    "pino": "9.5.0"
+  }
+}
